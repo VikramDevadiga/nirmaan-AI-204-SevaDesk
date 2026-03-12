@@ -8,6 +8,7 @@ import {
   ExternalLink, MessageSquare,
   Mic, MicOff,
   Volume2, VolumeX,
+  ScanText,
 } from 'lucide-react';
 
 interface SpeechRecognitionAlternative {
@@ -60,6 +61,12 @@ interface Message {
   applicationId?: string;
 }
 
+interface OcrCandidate {
+  id: string;
+  label: string;
+  value: string;
+}
+
 const SESSION_KEY = 'sevadesk_session';
 const MESSAGES_KEY = 'sevadesk_messages';
 const LEGACY_SESSION_KEY = 'govai_session';
@@ -90,6 +97,126 @@ function getSpeechText(content: string) {
     .trim();
 }
 
+function normalizeOcrText(raw: string) {
+  return raw
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getLatestAssistantPrompt(messages: Message[]) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === 'assistant') return message.content;
+  }
+  return '';
+}
+
+function extractAutofillValue(ocrText: string, prompt: string) {
+  const text = normalizeOcrText(ocrText);
+  const ask = prompt.toLowerCase();
+
+  const find = (regex: RegExp) => text.match(regex)?.[0] || '';
+
+  if (/aadhaar|aadhar/.test(ask)) {
+    const digits = find(/(?:\d[\s-]?){12}/g).replace(/\D/g, '');
+    return digits.length === 12 ? digits : '';
+  }
+
+  if (/pan/.test(ask)) {
+    return find(/\b[A-Z]{5}\d{4}[A-Z]\b/i).toUpperCase();
+  }
+
+  if (/passport/.test(ask)) {
+    return find(/\b[A-PR-WYa-pr-wy][1-9]\d{6}\b/);
+  }
+
+  if (/mobile|phone|contact/.test(ask)) {
+    const mobile = find(/(?:\+?91[\s-]?)?[6-9]\d{9}\b/).replace(/\D/g, '');
+    return mobile.startsWith('91') ? mobile.slice(2) : mobile;
+  }
+
+  if (/email/.test(ask)) {
+    return find(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}/);
+  }
+
+  if (/pin\s?code|pincode/.test(ask)) {
+    return find(/\b\d{6}\b/);
+  }
+
+  if (/date of birth|dob|birth/.test(ask)) {
+    return find(/\b\d{2}[\/.-]\d{2}[\/.-]\d{4}\b/);
+  }
+
+  if (/name/.test(ask)) {
+    const nameLine = ocrText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => /^[A-Za-z][A-Za-z\s.]{2,}$/.test(line) && !/government|india|republic|address|dob|sex/i.test(line));
+    if (nameLine) return nameLine;
+  }
+
+  const firstLine = ocrText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length >= 3);
+
+  return firstLine || text.slice(0, 60);
+}
+
+function extractOcrCandidates(ocrText: string): OcrCandidate[] {
+  const text = normalizeOcrText(ocrText);
+  const lines = ocrText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const output: OcrCandidate[] = [];
+
+  const add = (label: string, value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    const key = `${label}:${normalized.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push({ id: key, label, value: normalized });
+  };
+
+  const aadhaarMatches = text.match(/(?:\d[\s-]?){12}/g) || [];
+  for (const match of aadhaarMatches) {
+    const digits = match.replace(/\D/g, '');
+    if (digits.length === 12) add('Aadhaar Number', digits);
+  }
+
+  const panMatches = text.match(/\b[A-Z]{5}\d{4}[A-Z]\b/gi) || [];
+  for (const match of panMatches) add('PAN', match.toUpperCase());
+
+  const passportMatches = text.match(/\b[A-PR-WYa-pr-wy][1-9]\d{6}\b/g) || [];
+  for (const match of passportMatches) add('Passport Number', match.toUpperCase());
+
+  const mobileMatches = text.match(/(?:\+?91[\s-]?)?[6-9]\d{9}\b/g) || [];
+  for (const match of mobileMatches) {
+    const digits = match.replace(/\D/g, '');
+    const mobile = digits.startsWith('91') ? digits.slice(2) : digits;
+    if (mobile.length === 10) add('Mobile Number', mobile);
+  }
+
+  const emailMatches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}/g) || [];
+  for (const match of emailMatches) add('Email', match);
+
+  const dobMatches = text.match(/\b\d{2}[\/.-]\d{2}[\/.-]\d{4}\b/g) || [];
+  for (const match of dobMatches) add('Date of Birth', match.replace(/[.-]/g, '/'));
+
+  const pincodeMatches = text.match(/\b\d{6}\b/g) || [];
+  for (const match of pincodeMatches) add('PIN Code', match);
+
+  for (const line of lines) {
+    if (/^name[:\s]/i.test(line)) {
+      const value = line.replace(/^name[:\s]*/i, '').trim();
+      if (value.length >= 3) add('Name', value);
+    }
+  }
+
+  return output.slice(0, 16);
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -101,7 +228,11 @@ export default function ChatPage() {
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [speechOutputSupported, setSpeechOutputSupported] = useState(false);
   const [speechOutputEnabled, setSpeechOutputEnabled] = useState(true);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrCandidates, setOcrCandidates] = useState<OcrCandidate[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ocrInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -352,6 +483,76 @@ export default function ChatPage() {
     }
   }
 
+  async function handleOcrFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setOcrError('Please upload an image file (JPG, PNG, WEBP).');
+      return;
+    }
+
+    setOcrError(null);
+    setOcrLoading(true);
+
+    try {
+      const { recognize } = await import('tesseract.js');
+      const result = await recognize(file, 'eng');
+      const extracted = result.data.text || '';
+
+      if (!extracted.trim()) {
+        setOcrCandidates([]);
+        setOcrError('No readable text found in this image. Try a clearer photo.');
+        return;
+      }
+
+      const candidates = extractOcrCandidates(extracted);
+      setOcrCandidates(candidates);
+
+      const prompt = getLatestAssistantPrompt(messages);
+      const value = extractAutofillValue(extracted, prompt).trim();
+
+      if (!value) {
+        if (candidates.length === 0) {
+          setOcrError('Could not detect useful values. Please type manually or upload a clearer image.');
+        }
+        return;
+      }
+
+      setInput(value);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } catch {
+      setOcrError('OCR failed. Please try another image or type manually.');
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  function triggerOcrUpload() {
+    if (loading || ocrLoading) return;
+    setOcrError(null);
+    ocrInputRef.current?.click();
+  }
+
+  function handleCandidateDragStart(event: React.DragEvent<HTMLButtonElement>, value: string) {
+    event.dataTransfer.setData('text/plain', value);
+    event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  function handleInputDrop(event: React.DragEvent<HTMLInputElement>) {
+    event.preventDefault();
+    const droppedValue = event.dataTransfer.getData('text/plain').trim();
+    if (!droppedValue) return;
+    setInput(droppedValue);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function handleInputDragOver(event: React.DragEvent<HTMLInputElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
   function handleReset() {
     recognitionRef.current?.stop();
     window.speechSynthesis?.cancel();
@@ -562,11 +763,24 @@ export default function ChatPage() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onDragOver={handleInputDragOver}
+                onDrop={handleInputDrop}
                 placeholder="Type your answer or click a quick reply above..."
                 className="w-full bg-transparent text-white placeholder-slate-600 px-4 py-3.5 text-sm outline-none"
                 disabled={loading}
               />
             </div>
+            <motion.button
+              type="button"
+              onClick={triggerOcrUpload}
+              disabled={loading || ocrLoading}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-12 h-12 rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg flex-shrink-0"
+              title="Scan a document image to autofill current answer"
+            >
+              <ScanText className={`w-4 h-4 ${ocrLoading ? 'animate-pulse text-indigo-300' : ''}`} />
+            </motion.button>
             <motion.button
               type="button"
               onClick={handleVoiceToggle}
@@ -584,24 +798,56 @@ export default function ChatPage() {
             </motion.button>
             <motion.button
               type="submit"
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || ocrLoading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="w-12 h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg shadow-indigo-500/20 flex-shrink-0"
             >
               <Send className="w-4 h-4 text-white" />
             </motion.button>
+            <input
+              ref={ocrInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleOcrFileChange}
+              className="hidden"
+            />
           </form>
+
+          {ocrCandidates.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+              <p className="text-[11px] text-indigo-300 mb-2">OCR extracted values: drag to input field or click to use</p>
+              <div className="flex flex-wrap gap-2">
+                {ocrCandidates.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    draggable
+                    onDragStart={(event) => handleCandidateDragStart(event, candidate.value)}
+                    onClick={() => setInput(candidate.value)}
+                    className="px-2.5 py-1.5 rounded-lg border border-indigo-500/30 bg-white/[0.04] hover:bg-indigo-500/15 text-xs text-slate-200 transition-colors text-left"
+                    title={candidate.value}
+                  >
+                    <span className="text-indigo-300">{candidate.label}:</span> {candidate.value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between mt-2 px-1">
             <p className="text-[11px] text-slate-700">
-              {speechError
+              {ocrError
+                ? ocrError
+                : ocrLoading
+                  ? 'Scanning document... extracting text for autofill.'
+                  : speechError
                 ? speechError
                 : isListening
                   ? 'Listening... pause when you finish and SevaDesk will send your message.'
                   : speechSupported
-                    ? `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Tap the mic to speak • say "help" for commands • say "start over" to restart`
-                    : `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Type "help" for commands • "start over" to restart`}
+                    ? `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Use Scan to OCR autofill • tap mic to speak • say "help" for commands`
+                    : `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Use Scan to OCR autofill • type "help" for commands`}
             </p>
             <Link href="/status" className="text-[11px] text-slate-600 hover:text-indigo-400 transition-colors flex items-center gap-1">
               <MessageSquare className="w-3 h-3" /> Track Status
