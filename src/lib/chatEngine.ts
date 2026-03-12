@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getServiceFlow, ServiceFlow } from './serviceFlows';
 import { createApplication } from './db';
+import { normalizeWhatsappOtpPhone, sendWhatsappOtp, verifyWhatsappOtp } from './whatsappOtp';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ChatMessage {
@@ -28,8 +29,14 @@ type Stage =
   | 'select-document'
   | 'pre-collect'
   | 'collecting'
+  | 'verify-otp'
   | 'confirm'
   | 'complete';
+
+interface PendingOtpState {
+  fieldKey: string;
+  phone: string;
+}
 
 interface SessionState {
   sessionId: string;
@@ -40,6 +47,8 @@ interface SessionState {
   collectedData: Record<string, string>;
   serviceFlow?: ServiceFlow;
   applicationId?: string;
+  pendingOtp?: PendingOtpState;
+  verifiedPhoneFields: string[];
   invalidAttempts: number;
   createdAt: Date;
   lastActivity: Date;
@@ -161,6 +170,7 @@ export async function processMessage(sessionId: string | null, userMessage: stri
       stage: 'select-service',
       currentFieldIndex: 0,
       collectedData: {},
+      verifiedPhoneFields: [],
       invalidAttempts: 0,
       createdAt: new Date(),
       lastActivity: new Date(),
@@ -189,6 +199,8 @@ export async function processMessage(sessionId: string | null, userMessage: stri
     session.collectedData = {};
     session.serviceFlow = undefined;
     session.applicationId = undefined;
+    session.pendingOtp = undefined;
+    session.verifiedPhoneFields = [];
     session.invalidAttempts = 0;
     sessions.set(sid, session);
     return {
@@ -222,7 +234,9 @@ export async function processMessage(sessionId: string | null, userMessage: stri
     case 'pre-collect':
       return startCollection(session, sid);
     case 'collecting':
-      return handleDataCollection(session, msgTrimmed, sid);
+      return await handleDataCollection(session, msgTrimmed, sid);
+    case 'verify-otp':
+      return await handleOtpVerification(session, msgTrimmed, sid);
     case 'confirm':
       return await handleConfirmation(session, msgLower, sid);
     case 'complete':
@@ -330,6 +344,8 @@ function handleDocumentSelection(session: SessionState, msgLower: string, sid: s
   session.stage = 'pre-collect';
   session.currentFieldIndex = 0;
   session.collectedData = {};
+  session.verifiedPhoneFields = [];
+  session.pendingOtp = undefined;
   session.invalidAttempts = 0;
   sessions.set(sid, session);
 
@@ -345,11 +361,13 @@ function handleDocumentSelection(session: SessionState, msgLower: string, sid: s
 function startCollection(session: SessionState, sid: string): ChatResponse {
   session.stage = 'collecting';
   session.currentFieldIndex = 0;
+  session.pendingOtp = undefined;
+  session.verifiedPhoneFields = [];
   sessions.set(sid, session);
   return askCurrentField(session);
 }
 
-function handleDataCollection(session: SessionState, userInput: string, sid: string): ChatResponse {
+async function handleDataCollection(session: SessionState, userInput: string, sid: string): Promise<ChatResponse> {
   const flow = session.serviceFlow!;
   const field = flow.fields[session.currentFieldIndex];
 
@@ -372,9 +390,40 @@ function handleDataCollection(session: SessionState, userInput: string, sid: str
   }
 
   // Store and advance
-  session.collectedData[field.key] = userInput;
+  const normalizedInput = field.type === 'phone' ? normalizeWhatsappOtpPhone(userInput) : userInput;
+  session.collectedData[field.key] = normalizedInput;
   session.currentFieldIndex++;
   session.invalidAttempts = 0;
+
+  if (field.type === 'phone' && !session.verifiedPhoneFields.includes(field.key)) {
+    const otpSendResult = await sendWhatsappOtp(normalizedInput);
+
+    session.stage = 'verify-otp';
+    session.pendingOtp = {
+      fieldKey: field.key,
+      phone: normalizedInput,
+    };
+    sessions.set(sid, session);
+
+    if (!otpSendResult.success) {
+      return {
+        sessionId: sid,
+        stage: 'verify-otp',
+        message:
+          `⚠️ I could not send the WhatsApp OTP to **${normalizedInput}**.\n\n${otpSendResult.message || 'Please try again in a moment.'}`,
+        quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
+      };
+    }
+
+    return {
+      sessionId: sid,
+      stage: 'verify-otp',
+      message:
+        `📲 A verification OTP has been sent to your WhatsApp number **${normalizedInput}**.\n\nPlease enter the **6-digit OTP** to continue.`,
+      quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
+    };
+  }
+
   sessions.set(sid, session);
 
   if (session.currentFieldIndex >= flow.fields.length) {
@@ -385,6 +434,96 @@ function handleDataCollection(session: SessionState, userInput: string, sid: str
   }
 
   return askCurrentField(session);
+}
+
+async function handleOtpVerification(session: SessionState, userInput: string, sid: string): Promise<ChatResponse> {
+  const pendingOtp = session.pendingOtp;
+
+  if (!pendingOtp) {
+    session.stage = 'collecting';
+    sessions.set(sid, session);
+    return askCurrentField(session);
+  }
+
+  const msgLower = userInput.trim().toLowerCase();
+
+  if (msgLower.includes('change')) {
+    session.stage = 'collecting';
+    session.pendingOtp = undefined;
+    session.currentFieldIndex = Math.max(0, session.currentFieldIndex - 1);
+    delete session.collectedData[pendingOtp.fieldKey];
+    session.verifiedPhoneFields = session.verifiedPhoneFields.filter((key) => key !== pendingOtp.fieldKey);
+    sessions.set(sid, session);
+    return {
+      sessionId: sid,
+      stage: 'collecting',
+      message: 'No problem. Let\'s update the mobile number again.\n\n' + askCurrentField(session).message,
+      quickReplies: askCurrentField(session).quickReplies,
+    };
+  }
+
+  if (msgLower.includes('resend')) {
+    const resendResult = await sendWhatsappOtp(pendingOtp.phone);
+    session.pendingOtp = pendingOtp;
+    sessions.set(sid, session);
+
+    return {
+      sessionId: sid,
+      stage: 'verify-otp',
+      message: resendResult.success
+        ? `🔁 A new OTP has been sent to WhatsApp number **${pendingOtp.phone}**. Please enter the **6-digit OTP**.`
+        : `⚠️ I could not resend the OTP right now.\n\n${resendResult.message || 'Please try again.'}`,
+      quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
+    };
+  }
+
+  const otpCode = userInput.replace(/\D/g, '');
+  if (!/^\d{6}$/.test(otpCode)) {
+    sessions.set(sid, session);
+    return {
+      sessionId: sid,
+      stage: 'verify-otp',
+      message: `⚠️ Please enter a valid **6-digit OTP** sent to WhatsApp number **${pendingOtp.phone}**.`,
+      quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
+    };
+  }
+
+  const verificationResult = await verifyWhatsappOtp(pendingOtp.phone, otpCode);
+  if (!verificationResult.success) {
+    session.invalidAttempts += 1;
+    sessions.set(sid, session);
+    return {
+      sessionId: sid,
+      stage: 'verify-otp',
+      message: `⚠️ ${verificationResult.message || 'The OTP is incorrect.'}\n\nPlease try again or request a new OTP.`,
+      quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
+    };
+  }
+
+  session.invalidAttempts = 0;
+  session.pendingOtp = undefined;
+  session.verifiedPhoneFields = [...new Set([...session.verifiedPhoneFields, pendingOtp.fieldKey])];
+  session.stage = 'collecting';
+  sessions.set(sid, session);
+
+  if (session.currentFieldIndex >= session.serviceFlow!.fields.length) {
+    session.stage = 'confirm';
+    sessions.set(sid, session);
+    return {
+      sessionId: sid,
+      stage: 'confirm',
+      message: `✅ WhatsApp OTP verified successfully.\n\n${buildConfirmationMessage(session, sid).message}`,
+      quickReplies: ['✅ Confirm & Submit', '✏️ Edit Answers', '❌ Cancel Application'],
+    };
+  }
+
+  const nextField = askCurrentField(session);
+  return {
+    sessionId: sid,
+    stage: 'collecting',
+    message: `✅ WhatsApp OTP verified successfully.\n\n${nextField.message}`,
+    quickReplies: nextField.quickReplies,
+  };
 }
 
 function askCurrentField(session: SessionState): ChatResponse {
@@ -485,6 +624,8 @@ async function handleConfirmation(session: SessionState, msgLower: string, sid: 
   if (msgLower.includes('edit') || msgLower.includes('change') || msgLower.includes('correct')) {
     session.stage = 'collecting';
     session.currentFieldIndex = 0;
+    session.pendingOtp = undefined;
+    session.verifiedPhoneFields = [];
     sessions.set(sid, session);
     return {
       sessionId: sid,
@@ -501,6 +642,8 @@ async function handleConfirmation(session: SessionState, msgLower: string, sid: 
     session.currentFieldIndex = 0;
     session.collectedData = {};
     session.serviceFlow = undefined;
+    session.pendingOtp = undefined;
+    session.verifiedPhoneFields = [];
     sessions.set(sid, session);
     return {
       sessionId: sid,

@@ -1,5 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## WhatsApp OTP Setup
+
+The chat flow can send OTP codes to a user's WhatsApp number after they enter a mobile number.
+
+Create a local `.env.local` file based on `.env.example` and add these values:
+
+```bash
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_VERIFY_SERVICE_SID=your_twilio_verify_service_sid
+```
+
+Notes:
+
+- The implementation uses Twilio Verify with the `whatsapp` channel.
+- For local development without these env vars, the app falls back to a demo OTP mode and shows the OTP in chat.
+- In production, you must configure these env vars in Vercel Project Settings for real WhatsApp OTP delivery.
+
 ## Getting Started
 
 First, run the development server:
