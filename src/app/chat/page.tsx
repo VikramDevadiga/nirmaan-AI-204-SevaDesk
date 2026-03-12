@@ -6,7 +6,50 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, Sparkles, User, ArrowLeft, RefreshCw, Copy, CheckCircle,
   ExternalLink, MessageSquare,
+  Mic, MicOff,
+  Volume2, VolumeX,
 } from 'lucide-react';
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  0: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface BrowserSpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): BrowserSpeechRecognition;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 interface Message {
   id: string;
@@ -21,6 +64,7 @@ const SESSION_KEY = 'sevadesk_session';
 const MESSAGES_KEY = 'sevadesk_messages';
 const LEGACY_SESSION_KEY = 'govai_session';
 const LEGACY_MESSAGES_KEY = 'govai_messages';
+const SPEECH_OUTPUT_KEY = 'sevadesk_speech_output';
 
 // Simple markdown-like renderer (bold, code, newlines)
 function renderContent(content: string) {
@@ -36,21 +80,158 @@ function renderContent(content: string) {
   });
 }
 
+function getSpeechText(content: string) {
+  return content
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/\n+/g, '. ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechOutputSupported, setSpeechOutputSupported] = useState(false);
+  const [speechOutputEnabled, setSpeechOutputEnabled] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const loadingRef = useRef(false);
+  const transcriptRef = useRef('');
+  const lastSpokenMessageIdRef = useRef<string | null>(null);
+  const speechReadyRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => { scrollToBottom(); }, [messages, loading]);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setSpeechOutputSupported(typeof window.speechSynthesis !== 'undefined');
+
+    const savedSpeechOutput = localStorage.getItem(SPEECH_OUTPUT_KEY);
+    if (savedSpeechOutput !== null) {
+      setSpeechOutputEnabled(savedSpeechOutput === 'true');
+    }
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+
+    const recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-IN';
+
+    recognition.onstart = () => {
+      transcriptRef.current = '';
+      setSpeechError(null);
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      for (let index = 0; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript ?? '';
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const combinedTranscript = `${finalTranscript}${interimTranscript}`.trim();
+      transcriptRef.current = combinedTranscript;
+      setInput(combinedTranscript);
+    };
+
+    recognition.onerror = () => {
+      setSpeechError('Voice input could not start. Check microphone permission and try again.');
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+
+      const spokenText = transcriptRef.current.trim();
+      transcriptRef.current = '';
+
+      if (spokenText && !loadingRef.current) {
+        setInput('');
+        sendToAPI(spokenText, sessionIdRef.current);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    setSpeechSupported(true);
+
+    return () => {
+      recognition.onstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.stop();
+      recognitionRef.current = null;
+      window.speechSynthesis?.cancel();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !speechOutputSupported) return;
+    localStorage.setItem(SPEECH_OUTPUT_KEY, String(speechOutputEnabled));
+  }, [speechOutputEnabled, speechOutputSupported]);
+
+  useEffect(() => {
+    const assistantMessages = messages.filter((message) => message.role === 'assistant');
+    const latestAssistantMessage = assistantMessages[assistantMessages.length - 1];
+
+    if (!latestAssistantMessage) return;
+
+    if (!speechReadyRef.current) {
+      speechReadyRef.current = true;
+      lastSpokenMessageIdRef.current = latestAssistantMessage.id;
+      return;
+    }
+
+    if (!speechOutputSupported || !speechOutputEnabled) return;
+    if (lastSpokenMessageIdRef.current === latestAssistantMessage.id) return;
+
+    const text = getSpeechText(latestAssistantMessage.content);
+    if (!text) return;
+
+    lastSpokenMessageIdRef.current = latestAssistantMessage.id;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-IN';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }, [messages, speechOutputEnabled, speechOutputSupported]);
 
   // Initialize on first mount
   useEffect(() => {
@@ -145,7 +326,34 @@ export default function ChatPage() {
     sendToAPI(reply, sessionId);
   }
 
+  function handleVoiceToggle() {
+    if (!recognitionRef.current || loading) return;
+
+    setSpeechError(null);
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      return;
+    }
+
+    transcriptRef.current = '';
+    recognitionRef.current.start();
+  }
+
+  function handleSpeechOutputToggle() {
+    if (!speechOutputSupported) return;
+
+    const nextValue = !speechOutputEnabled;
+    setSpeechOutputEnabled(nextValue);
+
+    if (!nextValue) {
+      window.speechSynthesis.cancel();
+    }
+  }
+
   function handleReset() {
+    recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(MESSAGES_KEY);
     localStorage.removeItem(LEGACY_SESSION_KEY);
@@ -192,6 +400,15 @@ export default function ChatPage() {
               <p className="text-emerald-400 text-xs">Online • Ready to help</p>
             </div>
           </div>
+
+          <button
+            onClick={handleSpeechOutputToggle}
+            title={speechOutputSupported ? (speechOutputEnabled ? 'Mute assistant voice' : 'Enable assistant voice') : 'Text-to-speech is not supported in this browser'}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={!speechOutputSupported}
+          >
+            {speechOutputEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
 
           <button
             onClick={handleReset}
@@ -350,6 +567,21 @@ export default function ChatPage() {
               />
             </div>
             <motion.button
+              type="button"
+              onClick={handleVoiceToggle}
+              disabled={!speechSupported || loading}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors shadow-lg flex-shrink-0 ${
+                isListening
+                  ? 'bg-rose-600 border-rose-500 text-white shadow-rose-500/20'
+                  : 'bg-white/[0.04] border-white/10 text-slate-300 hover:bg-white/[0.08]'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title={speechSupported ? (isListening ? 'Stop voice input' : 'Start voice input') : 'Voice input is not supported in this browser'}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </motion.button>
+            <motion.button
               type="submit"
               disabled={!input.trim() || loading}
               whileHover={{ scale: 1.05 }}
@@ -362,7 +594,13 @@ export default function ChatPage() {
 
           <div className="flex items-center justify-between mt-2 px-1">
             <p className="text-[11px] text-slate-700">
-              Type &quot;help&quot; for commands • &quot;start over&quot; to restart
+              {speechError
+                ? speechError
+                : isListening
+                  ? 'Listening... pause when you finish and SevaDesk will send your message.'
+                  : speechSupported
+                    ? `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Tap the mic to speak • say "help" for commands • say "start over" to restart`
+                    : `${speechOutputEnabled && speechOutputSupported ? 'Replies will be spoken aloud • ' : ''}Type "help" for commands • "start over" to restart`}
             </p>
             <Link href="/status" className="text-[11px] text-slate-600 hover:text-indigo-400 transition-colors flex items-center gap-1">
               <MessageSquare className="w-3 h-3" /> Track Status
