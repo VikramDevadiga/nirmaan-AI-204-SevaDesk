@@ -116,6 +116,8 @@ const DOC_VALUE_MAP: Record<string, string> = {
   '🆔 aadhaar update': 'aadhaar',
   'aadhaar update': 'aadhaar',
   'aadhaar': 'aadhaar',
+  'aadhar update': 'aadhaar',
+  'aadhar': 'aadhaar',
   '📔 passport': 'passport',
   'passport': 'passport',
   '🚗 driving licence': 'driving-license',
@@ -138,6 +140,8 @@ const DOC_VALUE_MAP: Record<string, string> = {
   '🆔 aadhaar / e-aadhaar': 'aadhaar',
   'aadhaar / e-aadhaar': 'aadhaar',
   'e-aadhaar': 'aadhaar',
+  'aadhar / e-aadhar': 'aadhaar',
+  'e-aadhar': 'aadhaar',
   '📔 passport status': 'passport',
   'passport status': 'passport',
 };
@@ -405,21 +409,11 @@ async function handleDataCollection(session: SessionState, userInput: string, si
     };
     sessions.set(sid, session);
 
-    if (!otpSendResult.success) {
-      return {
-        sessionId: sid,
-        stage: 'verify-otp',
-        message:
-          `⚠️ I could not send the WhatsApp OTP to **${normalizedInput}**.\n\n${otpSendResult.message || 'Please try again in a moment.'}`,
-        quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
-      };
-    }
-
     return {
       sessionId: sid,
       stage: 'verify-otp',
       message:
-        `📲 A verification OTP has been sent to your WhatsApp number **${normalizedInput}**.\n\nPlease enter the **6-digit OTP** to continue.`,
+        `📲 An OTP has been generated for mobile number **${normalizedInput}**.\n\nYour OTP is: **${otpSendResult.code}**\n\nPlease enter the **6-digit OTP** to continue.`,
       quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
     };
   }
@@ -470,9 +464,7 @@ async function handleOtpVerification(session: SessionState, userInput: string, s
     return {
       sessionId: sid,
       stage: 'verify-otp',
-      message: resendResult.success
-        ? `🔁 A new OTP has been sent to WhatsApp number **${pendingOtp.phone}**. Please enter the **6-digit OTP**.`
-        : `⚠️ I could not resend the OTP right now.\n\n${resendResult.message || 'Please try again.'}`,
+      message: `🔁 A new OTP has been generated for mobile number **${pendingOtp.phone}**.\n\nYour new OTP is: **${resendResult.code}**\n\nPlease enter the **6-digit OTP**.`,
       quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
     };
   }
@@ -483,7 +475,7 @@ async function handleOtpVerification(session: SessionState, userInput: string, s
     return {
       sessionId: sid,
       stage: 'verify-otp',
-      message: `⚠️ Please enter a valid **6-digit OTP** sent to WhatsApp number **${pendingOtp.phone}**.`,
+      message: `⚠️ Please enter a valid **6-digit OTP** for mobile number **${pendingOtp.phone}**.`,
       quickReplies: ['🔁 Resend OTP', '✏️ Change Number'],
     };
   }
@@ -512,7 +504,7 @@ async function handleOtpVerification(session: SessionState, userInput: string, s
     return {
       sessionId: sid,
       stage: 'confirm',
-      message: `✅ WhatsApp OTP verified successfully.\n\n${buildConfirmationMessage(session, sid).message}`,
+      message: `✅ OTP verified successfully.\n\n${buildConfirmationMessage(session, sid).message}`,
       quickReplies: ['✅ Confirm & Submit', '✏️ Edit Answers', '❌ Cancel Application'],
     };
   }
@@ -521,7 +513,7 @@ async function handleOtpVerification(session: SessionState, userInput: string, s
   return {
     sessionId: sid,
     stage: 'collecting',
-    message: `✅ WhatsApp OTP verified successfully.\n\n${nextField.message}`,
+    message: `✅ OTP verified successfully.\n\n${nextField.message}`,
     quickReplies: nextField.quickReplies,
   };
 }

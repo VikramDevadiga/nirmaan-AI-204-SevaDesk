@@ -1,12 +1,16 @@
 type SendOtpResult = {
   success: boolean;
   message?: string;
+  code?: string;
 };
 
 type VerifyOtpResult = {
   success: boolean;
   message?: string;
 };
+
+// In-memory OTP store keyed by normalized phone number
+const otpStore = new Map<string, string>();
 
 function normalizeIndianPhoneNumber(input: string) {
   const digits = input.replace(/\D/g, '');
@@ -17,103 +21,29 @@ function normalizeIndianPhoneNumber(input: string) {
   return digits;
 }
 
-function toWhatsappAddress(input: string) {
-  const normalized = normalizeIndianPhoneNumber(input);
-  return `whatsapp:+91${normalized}`;
-}
-
-function getVerifyConfig() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-
-  if (!accountSid || !authToken || !serviceSid) {
-    return null;
-  }
-
-  return { accountSid, authToken, serviceSid };
-}
-
-function getAuthHeader(accountSid: string, authToken: string) {
-  return `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`;
-}
-
 export function normalizeWhatsappOtpPhone(input: string) {
   return normalizeIndianPhoneNumber(input);
 }
 
 export async function sendWhatsappOtp(input: string): Promise<SendOtpResult> {
-  const config = getVerifyConfig();
-
-  if (!config) {
-    return {
-      success: false,
-      message: 'WhatsApp OTP service is not configured on the server.',
-    };
-  }
-
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${config.serviceSid}/Verifications`, {
-    method: 'POST',
-    headers: {
-      Authorization: getAuthHeader(config.accountSid, config.authToken),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      To: toWhatsappAddress(input),
-      Channel: 'whatsapp',
-    }),
-    cache: 'no-store',
-  });
-
-  const data = await response.json() as { status?: string; message?: string };
-
-  if (!response.ok) {
-    return {
-      success: false,
-      message: data.message || 'Failed to send WhatsApp OTP.',
-    };
-  }
-
-  return {
-    success: true,
-    message: data.status ? `OTP status: ${data.status}` : 'OTP sent successfully.',
-  };
+  const phone = normalizeIndianPhoneNumber(input);
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  otpStore.set(phone, code);
+  return { success: true, code };
 }
 
-export async function verifyWhatsappOtp(input: string, code: string, demoCode?: string): Promise<VerifyOtpResult> {
-  const config = getVerifyConfig();
+export async function verifyWhatsappOtp(input: string, code: string): Promise<VerifyOtpResult> {
+  const phone = normalizeIndianPhoneNumber(input);
+  const stored = otpStore.get(phone);
 
-  if (!config) {
-    return {
-      success: false,
-      message: 'WhatsApp OTP service is not configured on the server.',
-    };
+  if (!stored) {
+    return { success: false, message: 'OTP expired or not found. Please request a new OTP.' };
   }
 
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${config.serviceSid}/VerificationCheck`, {
-    method: 'POST',
-    headers: {
-      Authorization: getAuthHeader(config.accountSid, config.authToken),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      To: toWhatsappAddress(input),
-      Code: code,
-    }),
-    cache: 'no-store',
-  });
-
-  const data = await response.json() as { status?: string; valid?: boolean; message?: string };
-
-  if (!response.ok) {
-    return {
-      success: false,
-      message: data.message || 'Failed to verify OTP.',
-    };
+  if (stored !== code.trim()) {
+    return { success: false, message: 'Invalid OTP code.' };
   }
 
-  return {
-    success: data.status === 'approved' || data.valid === true,
-    message: data.status === 'approved' || data.valid === true ? 'OTP verified.' : 'Invalid OTP code.',
-  };
+  otpStore.delete(phone);
+  return { success: true, message: 'OTP verified.' };
 }
