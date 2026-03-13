@@ -73,6 +73,7 @@ const DOC_PREFIX: Record<string, string> = {
   'voter-id': 'VOTE',
   'ration-card': 'RC',
   'birth-certificate': 'BC',
+  scholarship: 'SCH',
 };
 
 function generateApplicationId(document: string): string {
@@ -97,12 +98,13 @@ const DOC_LABELS: Record<string, string> = {
   'voter-id': 'Voter ID',
   'ration-card': 'Ration Card',
   'birth-certificate': 'Birth Certificate',
+  scholarship: 'Scholarship',
 };
 
 // ─── Apply document options ───────────────────────────────────────────────────
 const APPLY_DOCS = [
   '🪪 PAN Card', '🆔 Aadhaar Update', '📔 Passport',
-  '🚗 Driving Licence', '🗳️ Voter ID', '🍚 Ration Card', '📜 Birth Certificate',
+  '🚗 Driving Licence', '🗳️ Voter ID', '🍚 Ration Card', '📜 Birth Certificate', '🎓 Scholarship',
 ];
 
 const RETRIEVE_DOCS = [
@@ -134,6 +136,11 @@ const DOC_VALUE_MAP: Record<string, string> = {
   '📜 birth certificate': 'birth-certificate',
   'birth certificate': 'birth-certificate',
   'birth': 'birth-certificate',
+  '🎓 scholarship': 'scholarship',
+  'scholarship': 'scholarship',
+  'scholarships': 'scholarship',
+  'maharashtra scholarship': 'scholarship',
+  'maharashtra scholarships': 'scholarship',
   // retrieve
   '🪪 pan card status': 'pan',
   'pan card status': 'pan',

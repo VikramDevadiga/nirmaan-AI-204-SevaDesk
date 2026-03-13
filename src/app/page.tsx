@@ -8,7 +8,7 @@ import {
   Sparkles, FileText, Search, Shield, Zap, Clock,
   ArrowRight, CheckCircle, Star, Award,
   CreditCard, Globe, Car, Vote, ShoppingBag, ScrollText,
-  MessageSquare, Bot, BadgeCheck, IdCard, ChevronRight,
+  MessageSquare, Bot, BadgeCheck, IdCard, ChevronRight, GraduationCap,
 } from 'lucide-react';
 import panImage from '../../assets/pan.png';
 import aadhaarImage from '../../assets/aadhar.png';
@@ -38,6 +38,7 @@ const services: ServiceCard[] = [
   { icon: <Vote className="w-6 h-6" />, title: 'Voter ID', desc: 'New voter registration — EPIC card', color: 'from-red-500/20 to-rose-500/10', border: 'border-red-500/20', link: '/chat', image: voterImage },
   { icon: <ShoppingBag className="w-6 h-6" />, title: 'Ration Card', desc: 'Apply under NFSA — AAY, PHH, NPHH', color: 'from-yellow-500/20 to-amber-500/10', border: 'border-yellow-500/20', link: '/chat', image: rationImage },
   { icon: <ScrollText className="w-6 h-6" />, title: 'Birth Certificate', desc: 'Register a birth and get certificate', color: 'from-purple-500/20 to-pink-500/10', border: 'border-purple-500/20', link: '/chat', image: birthImage },
+  { icon: <GraduationCap className="w-6 h-6" />, title: 'Scholarships', desc: 'Apply for Maharashtra post-matric scholarships', color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/20', link: '/chat' },
   { icon: <Search className="w-6 h-6" />, title: 'Track Application', desc: 'Real-time status of any application', color: 'from-slate-500/20 to-gray-500/10', border: 'border-slate-500/20', link: '/status' },
 ];
 
@@ -48,7 +49,7 @@ const steps = [
 ];
 
 const stats = [
-  { value: '7+', label: 'Document Services', icon: <FileText className="w-5 h-5" /> },
+  { value: '8+', label: 'Document Services', icon: <FileText className="w-5 h-5" /> },
   { value: '100%', label: 'Real Requirements', icon: <CheckCircle className="w-5 h-5" /> },
   { value: '< 5 min', label: 'To Fill Application', icon: <Clock className="w-5 h-5" /> },
   { value: 'Free', label: 'No Hidden Charges', icon: <Star className="w-5 h-5" /> },
@@ -59,7 +60,7 @@ const features = [
   { icon: <Shield className="w-5 h-5 text-emerald-400" />, title: 'Real Requirements', desc: 'All fields and documents are based on actual Indian government service requirements.' },
   { icon: <Zap className="w-5 h-5 text-amber-400" />, title: 'Instant Application ID', desc: 'Get a unique Application ID immediately after submission to track your status.' },
   { icon: <Search className="w-5 h-5 text-blue-400" />, title: 'Live Status Tracking', desc: 'Track every stage from submission to dispatch with detailed history.' },
-  { icon: <FileText className="w-5 h-5 text-purple-400" />, title: 'All Services in One Place', desc: 'PAN, Aadhaar, Passport, Driving Licence, Voter ID, Ration Card — all from one platform.' },
+  { icon: <FileText className="w-5 h-5 text-purple-400" />, title: 'All Services in One Place', desc: 'PAN, Aadhaar, Passport, Driving Licence, Voter ID, Ration Card, Scholarships — all from one platform.' },
   { icon: <Award className="w-5 h-5 text-rose-400" />, title: 'Smart Validation', desc: 'Ensures all entered data is correct before submission, reducing rejections.' },
 ];
 
