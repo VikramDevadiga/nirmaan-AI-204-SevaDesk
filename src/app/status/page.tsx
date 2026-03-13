@@ -57,65 +57,6 @@ function formatDate(ts: string) {
   } catch { return ts; }
 }
 
-function maskName(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return value;
-  return parts
-    .map((part) => (part.length <= 1 ? part : `${part[0]}${'•'.repeat(Math.max(1, part.length - 1))}`))
-    .join(' ');
-}
-
-function maskEmail(value: string) {
-  const [local, domain] = value.split('@');
-  if (!local || !domain) return value;
-
-  const safeLocal = local.length <= 2
-    ? `${local[0] || ''}•`
-    : `${local.slice(0, 2)}${'•'.repeat(Math.max(2, local.length - 2))}`;
-
-  const [domainName, tld] = domain.split('.');
-  if (!domainName || !tld) return `${safeLocal}@${domain}`;
-
-  const safeDomain = domainName.length <= 2
-    ? `${domainName[0] || ''}•`
-    : `${domainName.slice(0, 2)}${'•'.repeat(Math.max(2, domainName.length - 2))}`;
-
-  return `${safeLocal}@${safeDomain}.${tld}`;
-}
-
-function maskNumber(value: string, visibleStart = 2, visibleEnd = 2) {
-  if (value.length <= visibleStart + visibleEnd) return '•'.repeat(Math.max(4, value.length));
-  const start = value.slice(0, visibleStart);
-  const end = value.slice(-visibleEnd);
-  return `${start}${'•'.repeat(value.length - visibleStart - visibleEnd)}${end}`;
-}
-
-function maskSensitiveValue(key: string, rawValue: string) {
-  const value = rawValue.trim();
-  const lowerKey = key.toLowerCase();
-
-  if (/name|applicant/.test(lowerKey)) return maskName(value);
-  if (/email/.test(lowerKey)) return maskEmail(value);
-
-  if (/mobile|phone|contact/.test(lowerKey)) {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length >= 10) return `${'•'.repeat(digits.length - 4)}${digits.slice(-4)}`;
-    return maskNumber(value, 0, 2);
-  }
-
-  if (/aadhaar|aadhar|pan|passport|license|licence|voter|epic|id|number/.test(lowerKey)) {
-    const compact = value.replace(/\s+/g, '');
-    return maskNumber(compact, 2, 2);
-  }
-
-  if (/address|flat|street|area|city|state|pincode|pin|dob|birth|date/.test(lowerKey)) {
-    if (value.length <= 4) return '•'.repeat(value.length);
-    return `${value.slice(0, 2)}${'•'.repeat(Math.max(2, value.length - 4))}${value.slice(-2)}`;
-  }
-
-  return value;
-}
-
 function StatusContent() {
   const searchParams = useSearchParams();
   const [searchId, setSearchId] = useState(searchParams.get('id') || '');
@@ -310,7 +251,7 @@ function StatusContent() {
                   {application.applicantName && (
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Applicant</p>
-                      <p className="text-sm font-medium text-white">{maskSensitiveValue('applicantName', application.applicantName)}</p>
+                      <p className="text-sm font-medium text-white">{application.applicantName}</p>
                     </div>
                   )}
                   <div>
@@ -320,7 +261,13 @@ function StatusContent() {
                   {application.applicantMobile && (
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Mobile</p>
-                      <p className="text-sm text-white">{maskSensitiveValue('mobile', application.applicantMobile)}</p>
+                      <p className="text-sm text-white">{application.applicantMobile}</p>
+                    </div>
+                  )}
+                  {application.applicantEmail && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Email</p>
+                      <p className="text-sm text-white break-all">{application.applicantEmail}</p>
                     </div>
                   )}
                 </div>
@@ -380,15 +327,13 @@ function StatusContent() {
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Object.entries(application.data)
                       .filter(([, val]) => val && val.length > 0)
-                      .slice(0, 12)
                       .map(([key, val]) => {
-                        const maskedValue = maskSensitiveValue(key, val);
                         return (
                         <div key={key} className="bg-white/[0.03] rounded-xl p-3 border border-white/5">
                           <p className="text-[11px] text-slate-500 capitalize mb-0.5">
                             {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
                           </p>
-                          <p className="text-sm text-slate-200 truncate" title={maskedValue}>{maskedValue}</p>
+                          <p className="text-sm text-slate-200 break-words" title={val}>{val}</p>
                         </div>
                       );})}
                   </div>
