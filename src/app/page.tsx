@@ -94,6 +94,7 @@ export default function HomePage() {
             <a href="#services" className="hover:text-white transition-colors">Services</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <Link href="/schemes" className="hover:text-white transition-colors">Scheme Finder</Link>
             <Link href="/status" className="hover:text-white transition-colors">Track Status</Link>
           </div>
           <Link href="/chat">
