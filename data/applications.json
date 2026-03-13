@@ -193,6 +193,42 @@
       "applicantName": "Applicant",
       "applicantMobile": "7977789337",
       "applicantEmail": ""
+    },
+    {
+      "id": "SCH-2026-XV2KKG",
+      "type": "Maharashtra Government Scholarships",
+      "service": "apply",
+      "document": "scholarship",
+      "status": "Submitted",
+      "statusHistory": [
+        {
+          "status": "Submitted",
+          "timestamp": "2026-03-13T09:07:41.022Z",
+          "note": "Application received successfully"
+        }
+      ],
+      "submittedAt": "2026-03-13T09:07:41.022Z",
+      "data": {
+        "schemeName": "Rajarshi Chhatrapati Shahu Maharaj Shikshan Shulk Scholarship (EBC)",
+        "applicantName": "vicky",
+        "mobile": "7977789337",
+        "email": "amitrajegaonkar@gmail.com",
+        "domicileState": "Maharashtra",
+        "category": "Open",
+        "religion": "Hindu",
+        "annualFamilyIncome": "400000",
+        "courseLevel": "11th/12th",
+        "collegeName": "sdfghj",
+        "universityOrBoard": "sdfgh",
+        "currentYear": "sdfgh",
+        "previousExamPercent": "80",
+        "aadhaarNumber": "555555555555",
+        "bankAccountLinked": "Yes",
+        "documentsReady": "Yes, all ready"
+      },
+      "applicantName": "Applicant",
+      "applicantMobile": "7977789337",
+      "applicantEmail": "amitrajegaonkar@gmail.com"
     }
   ]
 }
