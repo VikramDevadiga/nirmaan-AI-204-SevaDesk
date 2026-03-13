@@ -13,7 +13,7 @@ import {
   Building,
   Briefcase,
   User as UserIcon,
-  MapPin,
+  Users,
   Calendar,
   Wallet,
   Stethoscope,
@@ -35,16 +35,15 @@ export interface Scheme {
     minAge?: number;
     maxAge?: number;
     maxIncome?: number;
-    state?: string;
+    caste?: string[];
     occupation?: string[];
     gender?: string;
   };
 }
 
 export const mockSchemes: Scheme[] = [
-  // ... (keep the same mockSchemes array defined here above)
-  { id: 's1', title: 'Pre-Matric Scholarship', category: 'Scholarship', description: 'Financial assistance for students studying in classes 1 to 10.', icon: <GraduationCap className="w-6 h-6" />, color: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/20', eligibility: { maxAge: 16, maxIncome: 250000, occupation: ['Student'] } },
-  { id: 's2', title: 'Post-Matric Scholarship', category: 'Scholarship', description: 'Financial support for students pursuing higher education (class 11 and above).', icon: <GraduationCap className="w-6 h-6" />, color: 'from-indigo-500/20 to-violet-500/10', border: 'border-indigo-500/20', eligibility: { minAge: 15, maxAge: 30, maxIncome: 250000, occupation: ['Student'] } },
+  { id: 's1', title: 'Pre-Matric Scholarship for SC/OBC', category: 'Scholarship', description: 'Financial assistance for students studying in classes 1 to 10.', icon: <GraduationCap className="w-6 h-6" />, color: 'from-blue-500/20 to-cyan-500/10', border: 'border-blue-500/20', eligibility: { maxAge: 16, maxIncome: 250000, occupation: ['Student'], caste: ['SC', 'OBC'] } },
+  { id: 's2', title: 'Post-Matric Scholarship for Minorities & OBC', category: 'Scholarship', description: 'Financial support for students pursuing higher education (class 11 and above).', icon: <GraduationCap className="w-6 h-6" />, color: 'from-indigo-500/20 to-violet-500/10', border: 'border-indigo-500/20', eligibility: { minAge: 15, maxAge: 30, maxIncome: 250000, occupation: ['Student'], caste: ['OBC', 'Other'] } },
   { id: 's3', title: 'PM Awas Yojana (PMAY)', category: 'Housing', description: 'Affordable housing scheme providing interest subsidies on home loans.', icon: <Building className="w-6 h-6" />, color: 'from-orange-500/20 to-amber-500/10', border: 'border-orange-500/20', eligibility: { minAge: 18, maxIncome: 1800000 } },
   { id: 's4', title: 'PM Kisan Samman Nidhi', category: 'Subsidy', description: 'Income support of ₹6000 per year to all landholding farmer families.', icon: <CreditCard className="w-6 h-6" />, color: 'from-green-500/20 to-emerald-500/10', border: 'border-green-500/20', eligibility: { minAge: 18, occupation: ['Farmer'] } },
   { id: 's5', title: 'Sukanya Samriddhi Yojana', category: 'Savings', description: 'Small deposit scheme for the girl child to meet education and marriage expenses.', icon: <Baby className="w-6 h-6" />, color: 'from-pink-500/20 to-rose-500/10', border: 'border-pink-500/20', eligibility: { maxAge: 10, gender: 'Female' } },
@@ -52,12 +51,13 @@ export const mockSchemes: Scheme[] = [
   { id: 's7', title: 'Pradhan Mantri Jan Dhan Yojana', category: 'Banking', description: 'National Mission for Financial Inclusion to ensure access to financial services with zero balance.', icon: <Landmark className="w-6 h-6" />, color: 'from-sky-500/20 to-blue-500/10', border: 'border-sky-500/20', eligibility: { minAge: 10 } },
   { id: 's8', title: 'Atal Pension Yojana', category: 'Pension', description: 'Guaranteed minimum pension of ₹1,000 to ₹5,000 per month for unorganized sector workers.', icon: <ShieldCheck className="w-6 h-6" />, color: 'from-purple-500/20 to-fuchsia-500/10', border: 'border-purple-500/20', eligibility: { minAge: 18, maxAge: 40 } },
   { id: 's9', title: 'PM MUDRA Yojana', category: 'Business Loan', description: 'Loans up to ₹10 Lakhs to non-corporate, non-farm small/micro enterprises.', icon: <TrendingUp className="w-6 h-6" />, color: 'from-amber-500/20 to-yellow-500/10', border: 'border-amber-500/20', eligibility: { minAge: 18, occupation: ['Business'] } },
-  { id: 's10', title: 'Stand Up India Scheme', category: 'Business Loan', description: 'Bank loans between ₹10 lakh and ₹1 Crore to at least one SC/ST and one woman borrower per bank branch.', icon: <Briefcase className="w-6 h-6" />, color: 'from-rose-500/20 to-red-500/10', border: 'border-rose-500/20', eligibility: { minAge: 18, gender: 'Female', occupation: ['Business'] } },
+  { id: 's10', title: 'Stand Up India Scheme', category: 'Business Loan', description: 'Bank loans between ₹10 lakh and ₹1 Crore to at least one SC and one woman borrower per bank branch.', icon: <Briefcase className="w-6 h-6" />, color: 'from-rose-500/20 to-red-500/10', border: 'border-rose-500/20', eligibility: { minAge: 18, caste: ['SC'] } },
   { id: 's11', title: 'PM Svanidhi', category: 'Business Loan', description: 'Micro-credit facility for street vendors to resume their livelihoods.', icon: <CreditCard className="w-6 h-6" />, color: 'from-cyan-500/20 to-sky-500/10', border: 'border-cyan-500/20', eligibility: { minAge: 18, occupation: ['Business', 'Unemployed'] } },
   { id: 's12', title: 'Pradhan Mantri Matru Vandana Yojana', category: 'Health', description: 'Maternity benefit programme providing cash incentives to pregnant women and lactating mothers.', icon: <Stethoscope className="w-6 h-6" />, color: 'from-pink-500/20 to-fuchsia-500/10', border: 'border-pink-500/20', eligibility: { minAge: 19, gender: 'Female' } },
   { id: 's13', title: 'National Social Assistance Programme (Old Age)', category: 'Pension', description: 'Financial assistance to the elderly, widows, and persons with disabilities.', icon: <ShieldCheck className="w-6 h-6" />, color: 'from-slate-500/20 to-gray-500/10', border: 'border-slate-500/20', eligibility: { minAge: 60, maxIncome: 100000 } },
-  { id: 's14', title: 'PM Vishwakarma Scheme', category: 'Skill Training', description: 'End-to-end support to artisans and craftspeople along with collateral-free credit.', icon: <Briefcase className="w-6 h-6" />, color: 'from-yellow-500/20 to-orange-500/10', border: 'border-yellow-500/20', eligibility: { minAge: 18, occupation: ['Business', 'Salaried'] } },
-  { id: 's15', title: 'Chief Minister Fellowship (Maharashtra)', category: 'Employment', description: 'Opportunity for youth to work closely with the government administration in Maharashtra.', icon: <GraduationCap className="w-6 h-6" />, color: 'from-blue-500/20 to-indigo-500/10', border: 'border-blue-500/20', eligibility: { minAge: 21, maxAge: 26, state: 'maharashtra', occupation: ['Student'] } },
+  { id: 's14', title: 'PM Vishwakarma Scheme', category: 'Skill Training', description: 'End-to-end support to artisans and craftspeople along with collateral-free credit.', icon: <Briefcase className="w-6 h-6" />, color: 'from-yellow-500/20 to-orange-500/10', border: 'border-yellow-500/20', eligibility: { minAge: 18, occupation: ['Business', 'Salaried'], caste: ['OBC'] } },
+  { id: 's15', title: 'National Fellowship for SC Students', category: 'Scholarship', description: 'Fellowship provided to SC students for pursuing higher education leading to M.Phil/Ph.D.', icon: <GraduationCap className="w-6 h-6" />, color: 'from-blue-500/20 to-indigo-500/10', border: 'border-blue-500/20', eligibility: { minAge: 21, caste: ['SC'], occupation: ['Student'] } },
+  { id: 's16', title: 'SHREYAS Scheme for OBC/EBC', category: 'Education', description: 'Scholarships for Higher Education for Young Achievers Scheme (SHREYAS) for OBC & EBC.', icon: <GraduationCap className="w-6 h-6" />, color: 'from-teal-500/20 to-emerald-500/10', border: 'border-teal-500/20', eligibility: { maxIncome: 250000, caste: ['OBC', 'Open'] } },
 ];
 
 function SchemeFinderForm() {
@@ -66,7 +66,7 @@ function SchemeFinderForm() {
 
   const [age, setAge] = useState<string>('');
   const [income, setIncome] = useState<string>('');
-  const [state, setState] = useState<string>('');
+  const [caste, setCaste] = useState<string>('');
   const [occupation, setOccupation] = useState<string>('');
   const [gender, setGender] = useState<string>('');
   const [filteredSchemes, setFilteredSchemes] = useState<Scheme[] | null>(null);
@@ -75,25 +75,25 @@ function SchemeFinderForm() {
   useEffect(() => {
     const queryAge = searchParams.get('age') || '';
     const queryIncome = searchParams.get('income') || '';
-    const queryState = searchParams.get('state') || '';
+    const queryCaste = searchParams.get('caste') || '';
     const queryOccupation = searchParams.get('occupation') || '';
     const queryGender = searchParams.get('gender') || '';
 
     setAge(queryAge);
     setIncome(queryIncome);
-    setState(queryState);
+    setCaste(queryCaste);
     setOccupation(queryOccupation);
     setGender(queryGender);
 
-    if (queryAge || queryIncome || queryState || queryOccupation || queryGender) {
-      runFilter(queryAge, queryIncome, queryState, queryOccupation, queryGender);
+    if (queryAge || queryIncome || queryCaste || queryOccupation || queryGender) {
+      runFilter(queryAge, queryIncome, queryCaste, queryOccupation, queryGender);
     }
   }, [searchParams]);
 
-  const runFilter = (uAge: string, uIncome: string, uState: string, uOcc: string, uGender: string) => {
+  const runFilter = (uAge: string, uIncome: string, uCaste: string, uOcc: string, uGender: string) => {
     const userAge = uAge ? parseInt(uAge, 10) : undefined;
     const userIncome = uIncome ? parseInt(uIncome, 10) : undefined;
-    const userState = uState || undefined;
+    const userCaste = uCaste || undefined;
     const userOccupation = uOcc || undefined;
     const userGender = uGender || undefined;
 
@@ -103,7 +103,11 @@ function SchemeFinderForm() {
       if (el.minAge && userAge && userAge < el.minAge) return false;
       if (el.maxAge && userAge && userAge > el.maxAge) return false;
       if (el.maxIncome && userIncome && userIncome > el.maxIncome) return false;
-      if (el.state && userState && el.state.toLowerCase() !== userState.toLowerCase()) return false;
+      
+      if (el.caste && userCaste) {
+         if (!el.caste.includes(userCaste)) return false;
+      }
+      
       if (el.occupation && userOccupation) {
         const occMatch = el.occupation.some(o => o.toLowerCase() === userOccupation.toLowerCase());
         if (!occMatch) return false;
@@ -122,7 +126,7 @@ function SchemeFinderForm() {
     const params = new URLSearchParams();
     if (age) params.set('age', age);
     if (income) params.set('income', income);
-    if (state) params.set('state', state);
+    if (caste) params.set('caste', caste);
     if (occupation) params.set('occupation', occupation);
     if (gender) params.set('gender', gender);
     
@@ -205,23 +209,22 @@ function SchemeFinderForm() {
                   />
                 </div>
 
-                {/* State */}
+                {/* Caste */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-indigo-400" /> State
+                    <Users className="w-4 h-4 text-indigo-400" /> Caste / Category
                   </label>
                   <select
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
+                    value={caste}
+                    onChange={(e) => setCaste(e.target.value)}
                     className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.08] transition-all appearance-none"
                     style={{ backgroundImage: 'url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3e%3cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3e%3c/svg%3e")', backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
                   >
-                    <option value="" className="bg-[#04050a] text-slate-400">Select State / All</option>
-                    <option value="maharashtra" className="bg-[#04050a]">Maharashtra</option>
-                    <option value="karnataka" className="bg-[#04050a]">Karnataka</option>
-                    <option value="delhi" className="bg-[#04050a]">Delhi</option>
-                    <option value="gujarat" className="bg-[#04050a]">Gujarat</option>
-                    <option value="tamilnadu" className="bg-[#04050a]">Tamil Nadu</option>
+                    <option value="" className="bg-[#04050a] text-slate-400">Select Category / All</option>
+                    <option value="Open" className="bg-[#04050a]">Open Category</option>
+                    <option value="SC" className="bg-[#04050a]">SC (Scheduled Caste)</option>
+                    <option value="OBC" className="bg-[#04050a]">OBC (Other Backward Class)</option>
+                    <option value="Other" className="bg-[#04050a]">Other Minorities</option>
                   </select>
                 </div>
 

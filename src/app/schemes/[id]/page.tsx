@@ -88,7 +88,7 @@ export default function SchemeDetailsPage({ params }: SchemeDetailsProps) {
                  {scheme.eligibility.minAge && <li><strong className="text-white font-medium">Min Age:</strong> {scheme.eligibility.minAge} years</li>}
                  {scheme.eligibility.maxAge && <li><strong className="text-white font-medium">Max Age:</strong> {scheme.eligibility.maxAge} years</li>}
                  {scheme.eligibility.maxIncome && <li><strong className="text-white font-medium">Max Income:</strong> ₹{scheme.eligibility.maxIncome.toLocaleString('en-IN')} / year</li>}
-                 {scheme.eligibility.state && <li><strong className="text-white font-medium">State:</strong> <span className="capitalize">{scheme.eligibility.state}</span></li>}
+                 {scheme.eligibility.caste && <li><strong className="text-white font-medium">Category:</strong> {scheme.eligibility.caste.join(', ')}</li>}
                  {scheme.eligibility.gender && <li><strong className="text-white font-medium">Gender:</strong> {scheme.eligibility.gender}</li>}
                  {scheme.eligibility.occupation && <li><strong className="text-white font-medium">Occupation:</strong> {scheme.eligibility.occupation.join(', ')}</li>}
                  {Object.keys(scheme.eligibility).length === 0 && <li>Open to all citizens based on broader guidelines.</li>}
