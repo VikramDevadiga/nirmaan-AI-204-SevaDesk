@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getServiceFlow, ServiceFlow } from './serviceFlows';
-import { createApplication } from './db';
+import { Application, createApplication, getAllApplications } from './db';
 import { normalizeWhatsappOtpPhone, sendWhatsappOtp, verifyWhatsappOtp } from './whatsappOtp';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -251,6 +251,47 @@ export async function processMessage(sessionId: string | null, userMessage: stri
     case 'confirm':
       return await handleConfirmation(session, msgLower, sid);
     case 'complete':
+      if (session.service === 'retrieve') {
+        if (msgLower.includes('check another') || msgLower.includes('another record') || msgLower.includes('new search')) {
+          session.stage = 'select-document';
+          session.document = undefined;
+          session.currentFieldIndex = 0;
+          session.collectedData = {};
+          session.serviceFlow = undefined;
+          session.applicationId = undefined;
+          session.pendingOtp = undefined;
+          session.verifiedPhoneFields = [];
+          sessions.set(sid, session);
+
+          return {
+            sessionId: sid,
+            stage: 'select-document',
+            message: 'Sure. Which document status would you like to retrieve now?',
+            quickReplies: RETRIEVE_DOCS,
+          };
+        }
+
+        if ((msgLower.includes('track') || msgLower.includes('status')) && session.applicationId) {
+          return {
+            sessionId: sid,
+            stage: 'complete',
+            applicationId: session.applicationId,
+            message: `Open the status page with this ID: **${session.applicationId}**\n\nYou can also type \"start over\" to begin a new flow.`,
+            quickReplies: ['🔁 Check Another Record', '🏠 Start Over'],
+          };
+        }
+
+        return {
+          sessionId: sid,
+          stage: 'complete',
+          message: session.applicationId
+            ? `✅ Last retrieval result was found for **${session.applicationId}**.\n\nYou can check another record or start over.`
+            : '✅ Last retrieval search is complete. You can try another search or start over.',
+          quickReplies: ['🔁 Check Another Record', '🏠 Start Over'],
+          applicationId: session.applicationId,
+        };
+      }
+
       return {
         sessionId: sid,
         stage: 'complete',
@@ -383,6 +424,10 @@ async function handleDataCollection(session: SessionState, userInput: string, si
   const field = flow.fields[session.currentFieldIndex];
 
   if (!field) {
+    if (session.service === 'retrieve') {
+      return handleRetrieveLookup(session, sid);
+    }
+
     // All fields collected — move to confirm
     session.stage = 'confirm';
     sessions.set(sid, session);
@@ -428,6 +473,10 @@ async function handleDataCollection(session: SessionState, userInput: string, si
   sessions.set(sid, session);
 
   if (session.currentFieldIndex >= flow.fields.length) {
+    if (session.service === 'retrieve') {
+      return handleRetrieveLookup(session, sid);
+    }
+
     // Done collecting
     session.stage = 'confirm';
     sessions.set(sid, session);
@@ -506,6 +555,14 @@ async function handleOtpVerification(session: SessionState, userInput: string, s
   sessions.set(sid, session);
 
   if (session.currentFieldIndex >= session.serviceFlow!.fields.length) {
+    if (session.service === 'retrieve') {
+      const retrieveResult = handleRetrieveLookup(session, sid);
+      return {
+        ...retrieveResult,
+        message: `✅ OTP verified successfully.\n\n${retrieveResult.message}`,
+      };
+    }
+
     session.stage = 'confirm';
     sessions.set(sid, session);
     return {
@@ -567,6 +624,135 @@ function buildConfirmationMessage(session: SessionState, sid: string): ChatRespo
     stage: 'confirm',
     message: msg,
     quickReplies: ['✅ Confirm & Submit', '✏️ Edit Answers', '❌ Cancel Application'],
+  };
+}
+
+function normalizeDigits(value: string | undefined): string {
+  return (value || '').replace(/\D/g, '');
+}
+
+function normalizeAlphaNumeric(value: string | undefined): string {
+  return (value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+function normalizeDateToken(value: string | undefined): string {
+  return (value || '').replace(/[^\d]/g, '');
+}
+
+function buildRetrieveMessage(app: Application): string {
+  const timeline = app.statusHistory
+    .slice(-3)
+    .reverse()
+    .map((entry) => {
+      const note = entry.note ? ` — ${entry.note}` : '';
+      return `• **${entry.status}**${note}`;
+    })
+    .join('\n');
+
+  return (
+    `✅ **Record Found in Dummy DB**\n\n` +
+    `**Application ID:** \`${app.id}\`\n` +
+    `**Document:** ${app.type}\n` +
+    `**Current Status:** ${app.status}\n` +
+    `**Applicant:** ${app.applicantName || 'N/A'}\n` +
+    `**Mobile:** ${app.applicantMobile || 'N/A'}\n\n` +
+    `**Recent Timeline:**\n${timeline}\n\n` +
+    `You can open the full status page using this application ID.`
+  );
+}
+
+function findRetrieveMatch(session: SessionState): Application | null {
+  const apps = getAllApplications();
+  const doc = session.document;
+  const input = session.collectedData;
+
+  if (!doc) return null;
+
+  if (doc === 'aadhaar') {
+    const aadhaar = normalizeDigits(input.aadhaarNumber);
+    const mobile = normalizeDigits(input.mobile);
+
+    return (
+      apps.find((app) => {
+        if (app.document !== 'aadhaar') return false;
+
+        const appAadhaar = normalizeDigits(app.data?.aadhaarNumber);
+        const appMobile = normalizeDigits(app.applicantMobile || app.data?.mobile);
+
+        return appAadhaar === aadhaar && (!mobile || appMobile === mobile);
+      }) || null
+    );
+  }
+
+  if (doc === 'pan') {
+    const pan = normalizeAlphaNumeric(input.panNumber);
+    const dob = normalizeDateToken(input.dob);
+
+    return (
+      apps.find((app) => {
+        if (app.document !== 'pan') return false;
+
+        const appPan = normalizeAlphaNumeric(app.data?.panNumber || app.data?.pan || app.data?.panCardNumber);
+        const appDob = normalizeDateToken(app.data?.dob);
+
+        if (pan && appPan && appPan !== pan) return false;
+        if (dob && appDob && appDob !== dob) return false;
+
+        return Boolean(appPan || appDob);
+      }) || null
+    );
+  }
+
+  if (doc === 'passport') {
+    const ref = normalizeAlphaNumeric(input.fileNumber);
+    const dob = normalizeDateToken(input.dob);
+
+    return (
+      apps.find((app) => {
+        if (app.document !== 'passport') return false;
+
+        const appRef = normalizeAlphaNumeric(
+          app.data?.fileNumber || app.data?.applicationReference || app.data?.referenceNumber || app.data?.passportFileNumber,
+        );
+        const appDob = normalizeDateToken(app.data?.dob);
+
+        if (ref && appRef && appRef !== ref) return false;
+        if (dob && appDob && appDob !== dob) return false;
+
+        return Boolean(appRef || appDob);
+      }) || null
+    );
+  }
+
+  return null;
+}
+
+function handleRetrieveLookup(session: SessionState, sid: string): ChatResponse {
+  const matched = findRetrieveMatch(session);
+  session.stage = 'complete';
+  session.pendingOtp = undefined;
+
+  if (!matched) {
+    session.applicationId = undefined;
+    sessions.set(sid, session);
+    return {
+      sessionId: sid,
+      stage: 'complete',
+      message:
+        '❌ **No matching record found in dummy DB.**\n\nPlease verify your entered details and try again.\n\nTip: you can also use demo IDs on Track Status page such as `PAN-2026-DEMO01`, `PSP-2026-DEMO02`, `DL-2026-DEMO03`.',
+      quickReplies: ['🔁 Check Another Record', '🏠 Start Over'],
+    };
+  }
+
+  session.applicationId = matched.id;
+  sessions.set(sid, session);
+
+  return {
+    sessionId: sid,
+    stage: 'complete',
+    applicationId: matched.id,
+    message: buildRetrieveMessage(matched),
+    quickReplies: ['🔍 Track My Application', '🔁 Check Another Record', '🏠 Start Over'],
   };
 }
 
