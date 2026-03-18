@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Search, Sparkles, CheckCircle, Clock, Package,
   FileText, Loader2, AlertCircle, RefreshCw, Copy, MessageSquare,
+  Menu, X,
 } from 'lucide-react';
 
 interface StatusEntry {
@@ -64,6 +65,7 @@ function StatusContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Auto-search if ID in URL
   useEffect(() => {
@@ -123,7 +125,7 @@ function StatusContent() {
 
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b app-nav backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm hidden sm:block">Back to Home</span>
@@ -134,12 +136,33 @@ function StatusContent() {
             </div>
             <span className="font-semibold">Track Application</span>
           </div>
+          <button
+            type="button"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            className="sm:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:text-white hover:bg-white/10 transition-all"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
           <Link href="/chat">
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-sm rounded-lg hover:bg-indigo-600/30 transition-all">
+            <button className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-sm rounded-lg hover:bg-indigo-600/30 transition-all">
               <MessageSquare className="w-4 h-4" /> New Application
             </button>
           </Link>
         </div>
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-white/10 bg-[#070a14]/95 backdrop-blur-xl">
+            <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col gap-2 text-sm">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors">Home</Link>
+              <Link href="/status" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors">Track Status</Link>
+              <Link href="/schemes" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors">Scheme Finder</Link>
+              <Link href="/chat" onClick={() => setMobileMenuOpen(false)} className="mt-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 rounded-lg font-medium hover:bg-indigo-600/30 transition-all">
+                <MessageSquare className="w-4 h-4" /> New Application
+              </Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-28 pb-16">
