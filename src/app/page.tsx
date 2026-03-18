@@ -80,6 +80,8 @@ export default function HomePage() {
       const t = setTimeout(() => setVisible((v) => v + 1), 900);
       return () => clearTimeout(t);
     }
+    const reset = setTimeout(() => setVisible(0), 2400);
+    return () => clearTimeout(reset);
   }, [visible]);
 
   return (
@@ -171,15 +173,27 @@ export default function HomePage() {
 
           {/* Chat preview card */}
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="hidden lg:block">
-            <div className="relative">
+            <div className="relative hero-live-float">
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  className="hero-live-particle"
+                  style={{ left: `${16 + i * 22}%`, animationDelay: `${i * 0.9}s` }}
+                />
+              ))}
               <div className="absolute inset-0 bg-indigo-600/10 rounded-2xl blur-xl scale-105" />
+              <div className="absolute -inset-1 rounded-2xl hero-live-aura" />
               <div className="relative glass rounded-2xl overflow-hidden border border-white/10">
                 <div className="flex items-center gap-3 px-5 py-4 border-b border-white/5 bg-white/[0.02]">
                   <div className="flex gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-red-500/60" /><span className="w-3 h-3 rounded-full bg-amber-500/60" /><span className="w-3 h-3 rounded-full bg-emerald-500/60" />
                   </div>
                   <div className="flex-1 flex items-center justify-center gap-2 text-xs text-slate-500">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" /> SevaDesk Assistant — Online
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    </span>
+                    SevaDesk Assistant — Online
                   </div>
                 </div>
                 <div className="p-5 space-y-4 min-h-[300px]">

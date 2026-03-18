@@ -229,6 +229,32 @@
       "applicantName": "Applicant",
       "applicantMobile": "7977789337",
       "applicantEmail": "amitrajegaonkar@gmail.com"
+    },
+    {
+      "id": "AAD-2026-XCBQ5V",
+      "type": "Aadhaar Update/Correction",
+      "service": "apply",
+      "document": "aadhaar",
+      "status": "Submitted",
+      "statusHistory": [
+        {
+          "status": "Submitted",
+          "timestamp": "2026-03-18T07:22:56.327Z",
+          "note": "Application received successfully"
+        }
+      ],
+      "submittedAt": "2026-03-18T07:22:56.327Z",
+      "data": {
+        "aadhaarNumber": "773008892163",
+        "registeredName": "5555555555",
+        "updateType": "Name",
+        "newValue": "Vikram Devadiga",
+        "mobile": "6666666666",
+        "supportingDoc": "Aadhaar Letter"
+      },
+      "applicantName": "Applicant",
+      "applicantMobile": "6666666666",
+      "applicantEmail": ""
     }
   ]
 }

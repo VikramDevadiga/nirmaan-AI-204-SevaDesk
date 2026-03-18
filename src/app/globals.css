@@ -235,3 +235,41 @@ body {
   animation: card-shine 0.6s ease;
 }
 
+@keyframes hero-live-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes hero-live-aura {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.02); }
+}
+
+@keyframes hero-live-particle {
+  0% { transform: translateY(0) scale(0.85); opacity: 0; }
+  25% { opacity: 0.55; }
+  100% { transform: translateY(-18px) scale(1.1); opacity: 0; }
+}
+
+.hero-live-float {
+  animation: hero-live-float 7s ease-in-out infinite;
+}
+
+.hero-live-aura {
+  background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.28), transparent 45%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.2), transparent 40%);
+  filter: blur(10px);
+  animation: hero-live-aura 5s ease-in-out infinite;
+}
+
+.hero-live-particle {
+  position: absolute;
+  bottom: 24px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.95), rgba(167, 139, 250, 0.85));
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
+  animation: hero-live-particle 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
