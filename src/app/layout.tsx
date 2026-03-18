@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ThemeToggle from "@/components/themeToggle";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,7 +23,6 @@ export default function RootLayout({
     <html lang="en" data-theme="dark">
       <body className={`${inter.className} antialiased`}>
         {children}
-        <ThemeToggle />
       </body>
     </html>
   );
