@@ -617,9 +617,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen app-shell overflow-hidden">
+    <div className="fixed inset-0 flex flex-col app-shell overflow-hidden overscroll-none">
       {/* ── Header ── */}
-      <div className="flex-shrink-0 border-b border-white/8 app-nav backdrop-blur-xl z-20">
+      <div className="sticky top-0 flex-shrink-0 border-b border-white/8 app-nav backdrop-blur-xl z-30">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-3">
           <Link href="/" className="p-2 rounded-lg hover:bg-white/5 transition-colors text-slate-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
@@ -658,7 +658,7 @@ export default function ChatPage() {
       </div>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
           {/* Welcome message if no messages */}
           {messages.length === 0 && !loading && (
@@ -789,8 +789,8 @@ export default function ChatPage() {
       </div>
 
       {/* ── Input Bar ── */}
-      <div className="flex-shrink-0 border-t border-white/8 app-nav backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+      <div className="sticky bottom-0 flex-shrink-0 border-t border-white/8 app-nav backdrop-blur-xl z-30">
+        <div className="max-w-4xl mx-auto px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <form onSubmit={handleSubmit} className="flex items-end gap-3">
             <div className="flex-1 input-ring bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden transition-all">
               <input
