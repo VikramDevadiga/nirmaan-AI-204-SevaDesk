@@ -83,7 +83,7 @@ export default function HomePage() {
   }, [visible]);
 
   return (
-    <div className="min-h-screen app-shell overflow-x-hidden">
+    <div className="min-h-screen app-shell overflow-x-hidden pb-24 sm:pb-0">
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b app-nav backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
@@ -150,7 +150,7 @@ export default function HomePage() {
             <p className="text-lg sm:text-xl text-slate-400 mb-10 leading-relaxed max-w-xl">
               Apply for PAN, Passport, Aadhaar, Driving Licence and more — guided step-by-step by an intelligent AI assistant. No confusion. No paperwork maze.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="hidden sm:flex flex-col sm:flex-row gap-4">
               <Link href="/chat">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center justify-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-base transition-all glow-indigo">
                   <MessageSquare className="w-5 h-5" /> Start Your Application <ArrowRight className="w-4 h-4" />
@@ -213,6 +213,22 @@ export default function HomePage() {
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="w-5 h-8 rounded-full border border-white/20 flex items-start justify-center pt-1.5"><div className="w-1 h-2 bg-white/40 rounded-full" /></motion.div>
         </div>
       </section>
+
+      {/* Mobile bottom actions */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#070a14]/95 backdrop-blur-xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 gap-3">
+          <Link href="/chat">
+            <button className="w-full flex items-center justify-center gap-2 px-3 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm transition-all">
+              <MessageSquare className="w-4 h-4" /> Start Application
+            </button>
+          </Link>
+          <Link href="/status">
+            <button className="w-full flex items-center justify-center gap-2 px-3 py-3 glass glass-hover text-white rounded-xl font-semibold text-sm transition-all border border-white/10">
+              <Search className="w-4 h-4" /> Track Status
+            </button>
+          </Link>
+        </div>
+      </div>
 
       {/* Stats */}
       <section className="py-16 border-y border-white/5">
